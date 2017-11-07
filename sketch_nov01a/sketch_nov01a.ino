@@ -3,7 +3,7 @@
 
 #include "DHT.h"
 
-#define DHTPIN 2     // what digital pin we're connected to
+#define DHTPIN 2   // what digital pin we're connected to
 
 // Uncomment whatever type you're using!
 //#define DHTTYPE DHT11   // DHT 11
@@ -51,7 +51,7 @@ void loop() {
   float hic = dht.computeHeatIndex(t, h, false);
 
   Serial.print("Humidity: ");
-  Serial.println(h);
+  Serial.print(h);
   Serial.print(" %\t");
   Serial.print("Temperature: ");
   Serial.print(t);
