@@ -1,0 +1,2 @@
+# ArduinoMeteo
+Required DHT Library
