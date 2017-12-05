@@ -1,13 +1,12 @@
-
 #include <stdint.h>
 #include "SparkFunBME280.h"
 #include "Wire.h"
 #include "SPI.h"
-#include <LiquidCrystal_I2C.h>
+#include <LiquidCrystal.h>
 #include "DHT.h"
 
 #define DHTPIN 2   // what digital pin we're connected to
-
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7 );
 // Uncomment whatever type you're using!
 //#define DHTTYPE DHT11   // DHT 11
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
@@ -17,15 +16,44 @@ DHT dht(DHTPIN, DHTTYPE);
 
 //Global sensor object
 BME280 mySensor;
-LiquidCrystal_I2C lcd(0x27,16,2); //Адрес дисплея, в моём случае 0x3F
+//LiquidCrystal_I2C lcd(0x27,16,2); //Адрес дисплея, в моём случае 0x3F
+
+int button;
+bool flag = true; // true - bme ; false - DHT
+const int BUTTON_NONE   = 0;
+const int BUTTON_RIGHT  = 1;
+const int BUTTON_UP     = 2;
+const int BUTTON_DOWN   = 3;
+const int BUTTON_LEFT   = 4;
+const int BUTTON_SELECT = 5;
+
+
+int getPressedButton() {
+  int buttonValue = analogRead(0); // считываем значения с аналогового входа(A0)
+  if (buttonValue < 100) {
+    return BUTTON_RIGHT;
+  }
+  else if (buttonValue < 200) {
+    return BUTTON_UP;
+  }
+  else if (buttonValue < 400) {
+    return BUTTON_DOWN;
+  }
+  else if (buttonValue < 600) {
+    return BUTTON_LEFT;
+  }
+  else if (buttonValue < 800) {
+    return BUTTON_SELECT;
+  }
+  return BUTTON_NONE;
+}
 
 void setup()
 {
   
-  lcd.init();
-  lcd.backlight();
-lcd.print("hello");
-delay(1000);
+  lcd.begin(16,2);
+  lcd.print("hello");
+  delay(1000);
   //***Driver settings********************************//
   //commInterface can be I2C_MODE or SPI_MODE
   //specify chipSelectPin using arduino pin names
@@ -33,7 +61,7 @@ delay(1000);
   //For I2C, enable the following and disable the SPI section
   
   mySensor.settings.commInterface = I2C_MODE;
-  mySensor.settings.I2CAddress = 0x76; //Адрес датчика, в моём случае не стандартный
+  mySensor.settings.I2CAddress = 0x76; //Адрес датчика
   
   //For SPI enable the following and dissable the I2C section
   //mySensor.settings.commInterface = SPI_MODE;
@@ -89,6 +117,30 @@ delay(1000);
 void loop()
 {
   //Буквы можно вывести один раз, а далее менять показания, но показания при изменении количества значащих цифр могут сдвигать строку.
+  
+   button = getPressedButton();
+  switch (button) {
+    case BUTTON_SELECT:
+     if (flag==false){
+      flag=true;
+       lcd.clear();
+     } else{
+      flag=false;
+       lcd.clear();
+     }
+      break;
+
+  }
+  if (flag==false){
+     displayDHT();
+     } else{
+     
+      displayBME();
+     }
+
+ delay(150);
+}
+void displayBME(){
   lcd.setCursor(0,0);
   lcd.print("H=");
   lcd.print((uint8_t)mySensor.readFloatHumidity());
@@ -103,28 +155,20 @@ void loop()
   int mmH=mySensor.readFloatPressure()/133;
   lcd.print(mmH);
   lcd.print("mmHg");
-  //lcd.print(mySensor.readFloatPressure());
-  //cd.setCursor(14,1);
-  //lcd.print("Pa");
   lcd.print(" BME280");
-
-  delay(2500);
-  lcd.clear();
-
+}
+void displayDHT(){
   float h = dht.readHumidity();
   // Read temperature as Celsius (the default)
   float t = dht.readTemperature();
+  lcd.setCursor(0,0);
   lcd.print("H=");
   lcd.print(h);
   lcd.print("%");
   lcd.setCursor(0,1);
   lcd.print("T=");
   lcd.print(t);
-  //lcd.print(mySensor.readFloatPressure());
-  //cd.setCursor(14,1);
-  //lcd.print("Pa");
   lcd.print(" DHT");
 
-  delay(2500);
-  lcd.clear();
 }
+
