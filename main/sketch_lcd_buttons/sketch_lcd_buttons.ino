@@ -4,6 +4,7 @@
 #include "SPI.h"
 #include <LiquidCrystal.h>
 #include "DHT.h"
+#include <Adafruit_BMP085.h>
 
 #define DHTPIN 2   // what digital pin we're connected to
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7 );
@@ -12,14 +13,17 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7 );
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 //#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
-DHT dht(DHTPIN, DHTTYPE);
+//Display mode
+// 0 -> DHT; 1 -> BME280; 2-> altimeter
+int displayMode = 0;
+double zeroPressure = 0;
 
 //Global sensor object
 BME280 mySensor;
-//LiquidCrystal_I2C lcd(0x27,16,2); //Адрес дисплея, в моём случае 0x3F
+Adafruit_BMP085 altimeter;
+DHT dht(DHTPIN, DHTTYPE);
 
 int button;
-bool flag = true; // true - bme ; false - DHT
 const int BUTTON_NONE   = 0;
 const int BUTTON_RIGHT  = 1;
 const int BUTTON_UP     = 2;
@@ -112,33 +116,47 @@ void setup()
   //Calling .begin() causes the settings to be loaded
   mySensor.begin();
    dht.begin();
+   altimeter.begin();
 }
 
 void loop()
 {
-  //Буквы можно вывести один раз, а далее менять показания, но показания при изменении количества значащих цифр могут сдвигать строку.
-  
-   button = getPressedButton();
-  switch (button) {
+    button = getPressedButton();  //get pressed button
+    switch (button) {
     case BUTTON_SELECT:
-     if (flag==false){
-      flag=true;
-       lcd.clear();
-     } else{
-      flag=false;
-       lcd.clear();
-     }
-      break;
+      if(displayMode < 2){
+        switch(displayMode){
+          case 0: displayMode = 1;
+                break;
+          case 1: displayMode = 0;
+                break;
+      }
+      lcd.clear();
+    }
+    break;
+    case BUTTON_RIGHT:
+      zeroPressure = 0;
+      displayMode = 2;
+      lcd.clear();
+    break;
+
+     case BUTTON_LEFT:
+      displayMode = 0;
+      lcd.clear();
+    break;
 
   }
-  if (flag==false){
-     displayDHT();
-     } else{
-     
-      displayBME();
-     }
 
- delay(150);
+ switch(displayMode){
+  case 0: displayBME();
+          break;
+  case 1: displayDHT();
+          break;
+  case 2: Altimeter();
+          break;
+ }
+
+ delay(1000);
 }
 void displayBME(){
   lcd.setCursor(0,0);
@@ -152,11 +170,12 @@ void displayBME(){
   lcd.setCursor(0,1);
   lcd.print("P:");
 
-  int mmH=mySensor.readFloatPressure()/133;
+  float mmH=mySensor.readFloatPressure()/133;
   lcd.print(mmH);
   lcd.print("mmHg");
   lcd.print(" BME280");
 }
+
 void displayDHT(){
   float h = dht.readHumidity();
   // Read temperature as Celsius (the default)
@@ -169,6 +188,41 @@ void displayDHT(){
   lcd.print("T=");
   lcd.print(t);
   lcd.print(" DHT");
+
+}
+
+void Altimeter(){
+  if (zeroPressure == 0){
+    zeroPressure = altimeter.readPressure();
+  }
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("T:");
+  lcd.print(altimeter.readTemperature());
+  lcd.print(' ');
+    
+    lcd.print("P:");
+    lcd.print(altimeter.readPressure() * 0.00750062);
+    
+    // Calculate altitude assuming 'standard' barometric
+    // pressure of 1013.25 millibar = 101325 Pascal
+   // lcd.print("Alt:");
+   // lcd.print(bmp.readAltitude());
+   // lcd.println("m");
+
+    //lcd.print("Pressure at sealevel (calculated) = ");
+   // lcd.print(bmp.readSealevelPressure());
+   // lcd.println(" Pa");
+
+  // you can get a more precise measurement of altitude
+  // if you know the current sea level pressure which will
+  // vary with weather and such. If it is 1015 millibars
+  // that is equal to 101500 Pascals.
+
+  lcd.setCursor(0,1);
+   lcd.print("alt:");
+   lcd.print((int)altimeter.readAltitude(zeroPressure));
+   //lcd.println(" m");
 
 }
 
