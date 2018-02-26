@@ -1,10 +1,10 @@
+#include <EEPROM.h>
 #include <stdint.h>
 #include "SparkFunBME280.h"
 #include "Wire.h"
 #include "SPI.h"
 #include <LiquidCrystal.h>
 #include "DHT.h"
-#include <Adafruit_BMP085.h>
 
 #define DHTPIN 2   // what digital pin we're connected to
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7 );
@@ -14,13 +14,11 @@ LiquidCrystal lcd(8, 9, 4, 5, 6, 7 );
 //#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 //Display mode
-// 0 -> DHT; 1 -> BME280; 2-> altimeter
+// 0 -> DHT; 1 -> BME280; -1-> calibrating
 int displayMode = 0;
-double zeroPressure = 0;
 
 //Global sensor object
 BME280 mySensor;
-Adafruit_BMP085 altimeter;
 DHT dht(DHTPIN, DHTTYPE);
 
 int button;
@@ -52,11 +50,15 @@ int getPressedButton() {
   return BUTTON_NONE;
 }
 
+//Calibrate indexes
+double tempIndexBME = 0.0;
+double tempIndexDHT = 0.0;
+
 void setup()
 {
   
   lcd.begin(16,2);
-  lcd.print("hello");
+  lcd.print("Hello :)");
   delay(1000);
   //***Driver settings********************************//
   //commInterface can be I2C_MODE or SPI_MODE
@@ -88,7 +90,7 @@ void setup()
   //  5, 1000ms
   //  6, 10ms
   //  7, 20ms
-  mySensor.settings.tStandby = 5; //Очевидно чаще не нужно
+  mySensor.settings.tStandby = 0; //Очевидно чаще не нужно
   
   //filter can be off or number of FIR coefficients to use:
   //  0, filter off
@@ -115,8 +117,9 @@ void setup()
     
   //Calling .begin() causes the settings to be loaded
   mySensor.begin();
-   dht.begin();
-   altimeter.begin();
+  dht.begin();
+  //Calibrate(26.5);
+  Serial.begin(9600);
 }
 
 void loop()
@@ -124,39 +127,31 @@ void loop()
     button = getPressedButton();  //get pressed button
     switch (button) {
     case BUTTON_SELECT:
-      if(displayMode < 2){
         switch(displayMode){
           case 0: displayMode = 1;
+                lcd.clear();
                 break;
           case 1: displayMode = 0;
+                lcd.clear();
                 break;
-      }
-      lcd.clear();
+                               
+      
     }
-    break;
-    case BUTTON_RIGHT:
-      zeroPressure = 0;
-      displayMode = 2;
-      lcd.clear();
-    break;
-
-     case BUTTON_LEFT:
-      displayMode = 0;
-      lcd.clear();
     break;
 
   }
 
  switch(displayMode){
-  case 0: displayBME();
+  case 0: 
+          displayBME();
           break;
-  case 1: displayDHT();
-          break;
-  case 2: Altimeter();
+  case 1: 
+          displayDHT();
           break;
  }
-
- delay(1000);
+ Serial.println(mySensor.readTempC());
+ Serial.println(tempIndexBME);
+ delay(500);
 }
 void displayBME(){
   lcd.setCursor(0,0);
@@ -164,14 +159,14 @@ void displayBME(){
   lcd.print((uint8_t)mySensor.readFloatHumidity());
   lcd.print("%");
   lcd.print(" T=");
-  lcd.print(mySensor.readTempC());
+  lcd.print(mySensor.readTempC() + tempIndexBME, 1);
   lcd.setCursor(13,0);
   
   lcd.setCursor(0,1);
   lcd.print("P:");
 
   float mmH=mySensor.readFloatPressure()/133;
-  lcd.print(mmH);
+  lcd.print(mmH, 0);
   lcd.print("mmHg");
   lcd.print(" BME280");
 }
@@ -182,47 +177,37 @@ void displayDHT(){
   float t = dht.readTemperature();
   lcd.setCursor(0,0);
   lcd.print("H=");
-  lcd.print(h);
+  lcd.print(h, 0);
   lcd.print("%");
   lcd.setCursor(0,1);
   lcd.print("T=");
-  lcd.print(t);
+  lcd.print(t + tempIndexDHT, 1);
   lcd.print(" DHT");
 
 }
 
-void Altimeter(){
-  if (zeroPressure == 0){
-    zeroPressure = altimeter.readPressure();
-  }
+void displayCalibrate(){
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("T:");
-  lcd.print(altimeter.readTemperature());
-  lcd.print(' ');
-    
-    lcd.print("P:");
-    lcd.print(altimeter.readPressure() * 0.00750062);
-    
-    // Calculate altitude assuming 'standard' barometric
-    // pressure of 1013.25 millibar = 101325 Pascal
-   // lcd.print("Alt:");
-   // lcd.print(bmp.readAltitude());
-   // lcd.println("m");
-
-    //lcd.print("Pressure at sealevel (calculated) = ");
-   // lcd.print(bmp.readSealevelPressure());
-   // lcd.println(" Pa");
-
-  // you can get a more precise measurement of altitude
-  // if you know the current sea level pressure which will
-  // vary with weather and such. If it is 1015 millibars
-  // that is equal to 101500 Pascals.
-
+  lcd.print("Cal mode");
   lcd.setCursor(0,1);
-   lcd.print("alt:");
-   lcd.print((int)altimeter.readAltitude(zeroPressure));
-   //lcd.println(" m");
-
 }
+
+void Calibrate(double trueTemp){
+  float r;
+  EEPROM.get(0, r);
+  if(r == 0xFFFFFFFF){
+    tempIndexBME = trueTemp - mySensor.readTempC();
+    tempIndexDHT = trueTemp - dht.readTemperature();
+    EEPROM.put(0, tempIndexBME);
+    EEPROM.put(sizeof(float), tempIndexDHT);
+   
+  } else{
+    EEPROM.get(0,  tempIndexBME);
+    EEPROM.get(sizeof(float),  tempIndexDHT);
+  }
+  
+}
+
+
 
