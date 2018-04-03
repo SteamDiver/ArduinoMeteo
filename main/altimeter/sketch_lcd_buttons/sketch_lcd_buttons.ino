@@ -3,6 +3,7 @@
 #include "SPI.h"
 #include <LiquidCrystal.h>
 #include <Adafruit_BMP085.h>
+#include <math.h>
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7 );
 
@@ -40,6 +41,8 @@ int getPressedButton() {
   return BUTTON_NONE;
 }
 
+double TEMPERATURE=0;
+
 void setup()
 {
   
@@ -48,6 +51,7 @@ void setup()
   delay(1000);
   
   altimeter.begin();
+  TEMPERATURE = altimeter.readTemperature();
 }
 
 void loop()
@@ -68,19 +72,26 @@ void Altimeter(){
     zeroPressure = altimeter.readPressure();
   }
   double pressure = altimeter.readPressure() * 0.00750062;
-  double altitude = altimeter.readAltitude(zeroPressure);
+  double altitudeStandart = altimeter.readAltitude(zeroPressure);
+  double altitudeCorrect = altitudeStandart + altitudeStandart * (TEMPERATURE - 15) / 300;
 
   lcd.clear();
   
   lcd.setCursor(0,0);
  
-  lcd.print("Pressure:");
-  lcd.print(pressure);
+  //lcd.print("Pressure:");
+  //lcd.print(pressure);
     
 
+   //lcd.setCursor(0,1);
+   lcd.print("AltStd:");
+   lcd.print(altitudeStandart);
+   lcd.setCursor(15,0);
+   lcd.print("m");
+
    lcd.setCursor(0,1);
-   lcd.print("Alt:");
-   lcd.print(altitude);
+   lcd.print("AltCrct:");
+   lcd.print(altitudeCorrect);
    lcd.setCursor(15,1);
    lcd.print("m");
 }
