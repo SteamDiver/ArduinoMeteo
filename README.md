@@ -1,5 +1,6 @@
 # ArduinoMeteo
 [![Build Status](https://travis-ci.org/SteamDiver/ArduinoMeteo.svg?branch=master)](https://travis-ci.org/SteamDiver/ArduinoMeteo)
+
 Required DHT Library
 Adafruit.h must be in libraries folder
 
